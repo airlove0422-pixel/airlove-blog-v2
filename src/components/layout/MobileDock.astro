@@ -27,11 +27,7 @@ import { Icon } from "astro-icon/components";
 		</span>
 	</button>
 
-	<!-- 右2: 后台管理 -->
-	<button class="mobile-dock__btn" id="mobile-dock-admin-btn" aria-label="后台管理" type="button">
-		<span class="mobile-dock__icon"><Icon name="material-symbols:admin-panel-settings-outline-rounded" is:inline /></span>
-		<span class="mobile-dock__label">后台</span>
-	</button>
+
 
 	<!-- 右1: 返回 -->
 	<button class="mobile-dock__btn" id="mobile-dock-back-btn" aria-label="返回" type="button">
@@ -221,11 +217,7 @@ import { Icon } from "astro-icon/components";
 		window.history.back();
 	});
 
-	// 后台管理按钮（dock 上）
-	document.getElementById("mobile-dock-admin-btn")?.addEventListener("click", function(e) {
-		e.stopPropagation();
-		window.location.href = "/admin/";
-	});
+
 
 	// 工具栏 sheet 开关
 	function openSheet() {
