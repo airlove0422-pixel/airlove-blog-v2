@@ -1,4 +1,4 @@
-import type { SiteConfig } from "@/types/config";
+﻿import type { SiteConfig } from "@/types/config";
 import { fontConfig } from "./fontConfig";
 
 // 定义站点语言
@@ -13,7 +13,7 @@ export const siteConfig: SiteConfig = {
 	subtitle: "往昔之局未竞",
 
 	// 站点 URL
-	site_url: "https://example.com",
+	site_url: "https://airlove-blog-v2.vercel.app",
 
 	// 站点描述
 	description:
@@ -249,3 +249,4 @@ export const siteConfig: SiteConfig = {
 	// 站点语言，在本配置文件顶部SITE_LANG定义
 	lang: SITE_LANG,
 };
+
