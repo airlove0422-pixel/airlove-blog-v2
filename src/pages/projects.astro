@@ -1,0 +1,35 @@
+---
+import { Icon } from "astro-icon/components";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+import { getEnabledProjects } from "@/config/projectsConfig";
+
+const projects = getEnabledProjects();
+---
+
+<MainGridLayout title="项目" description="我的学习实践与正在推进的项目">
+	<div class="card-base px-5 py-6 md:px-9 md:py-8">
+		<div class="mb-7">
+			<div class="flex items-center gap-3 mb-2">
+				<Icon name="material-symbols:rocket-launch-outline" class="text-3xl" />
+				<h1 class="text-3xl font-bold">项目</h1>
+			</div>
+			<p class="text-neutral-600 dark:text-neutral-400">把学习落到可以运行、可以展示的作品里。</p>
+		</div>
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+			{projects.map((project) => (
+				<article class="rounded-2xl border border-black/10 dark:border-white/10 p-5 bg-white/45 dark:bg-black/20 transition-transform hover:-translate-y-1">
+					<div class="flex items-start gap-4">
+						<img src={project.imgurl} alt="" class="w-14 h-14 rounded-2xl object-cover shrink-0" />
+						<div class="min-w-0">
+							<h2 class="text-xl font-bold mb-2">{project.title}</h2>
+							<p class="text-sm leading-6 text-neutral-600 dark:text-neutral-400">{project.desc}</p>
+						</div>
+					</div>
+					<div class="flex flex-wrap gap-2 mt-4">
+						{project.tags?.map((tag) => <span class="text-xs px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/10">{tag}</span>)}
+					</div>
+				</article>
+			))}
+		</div>
+	</div>
+</MainGridLayout>

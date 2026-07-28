@@ -1,0 +1,278 @@
+---
+import { Icon } from "astro-icon/components";
+
+interface Props {
+	defaultCity?: string;
+}
+
+const { defaultCity = "石家庄" } = Astro.props;
+---
+
+<article
+	class="data-card data-card--weather"
+	data-weather-widget
+	data-default-city={defaultCity}
+	aria-label="实时天气"
+>
+	<div class="data-card__frame"></div>
+	<div class="data-card__visual weather-card__visual" aria-hidden="true">
+		<div class="weather-card__orb weather-card__orb--large"></div>
+		<div class="weather-card__orb weather-card__orb--small"></div>
+	</div>
+
+	<div class="data-card__content weather-card__content">
+		<div class="weather-card__header">
+			<span class="data-card__icon weather-card__icon" data-weather-icon aria-hidden="true">🌤️</span>
+			<div class="weather-card__actions">
+				<button type="button" class="weather-card__action" data-weather-location title="使用我的位置" aria-label="使用我的位置">
+					<Icon name="material-symbols:my-location-rounded" is:inline />
+				</button>
+				<button type="button" class="weather-card__action" data-weather-refresh title="刷新天气" aria-label="刷新天气">
+					<Icon name="material-symbols:refresh-rounded" is:inline />
+				</button>
+			</div>
+		</div>
+
+		<p class="data-card__eyebrow">WEATHER</p>
+		<h3 class="data-card__title weather-card__title">
+			<span data-weather-city>{defaultCity}</span>
+			<strong data-weather-temperature>--°</strong>
+		</h3>
+		<p class="data-card__detail weather-card__status" data-weather-status aria-live="polite">正在获取天气...</p>
+
+		<div class="weather-card__metrics" aria-label="天气详细信息">
+			<div class="weather-card__metric">
+				<span>体感</span>
+				<strong data-weather-apparent>--°</strong>
+			</div>
+			<div class="weather-card__metric">
+				<span>湿度</span>
+				<strong data-weather-humidity>--%</strong>
+			</div>
+			<div class="weather-card__metric">
+				<span>风速</span>
+				<strong data-weather-wind>--</strong>
+			</div>
+		</div>
+
+		<a
+			class="weather-card__credit"
+			href="https://open-meteo.com/"
+			target="_blank"
+			rel="noopener noreferrer"
+		>
+			天气数据：Open-Meteo
+		</a>
+	</div>
+</article>
+
+<script>
+	type CurrentWeather = {
+		temperature_2m?: number;
+		apparent_temperature?: number;
+		relative_humidity_2m?: number;
+		weather_code?: number;
+		wind_speed_10m?: number;
+		is_day?: number;
+	};
+
+	type ForecastResponse = {
+		current?: CurrentWeather;
+		current_units?: Record<string, string>;
+	};
+
+	type GeoResult = {
+		name: string;
+		admin1?: string;
+		latitude: number;
+		longitude: number;
+	};
+
+	type CachedWeather = {
+		time: number;
+		city: string;
+		data: ForecastResponse;
+	};
+
+	const CACHE_TIME = 10 * 60 * 1000;
+
+	function weatherDescription(code: number, isDay: boolean) {
+		if (code === 0) return { text: "晴朗", icon: isDay ? "☀️" : "🌙" };
+		if (code === 1) return { text: "大部晴朗", icon: isDay ? "🌤️" : "🌙" };
+		if (code === 2) return { text: "多云", icon: "⛅" };
+		if (code === 3) return { text: "阴天", icon: "☁️" };
+		if (code === 45 || code === 48) return { text: "有雾", icon: "🌫️" };
+		if ([51, 53, 55, 56, 57].includes(code)) return { text: "毛毛雨", icon: "🌦️" };
+		if ([61, 63, 65, 66, 67].includes(code)) return { text: "有雨", icon: "🌧️" };
+		if ([71, 73, 75, 77].includes(code)) return { text: "有雪", icon: "🌨️" };
+		if ([80, 81, 82].includes(code)) return { text: "阵雨", icon: "🌦️" };
+		if ([85, 86].includes(code)) return { text: "阵雪", icon: "🌨️" };
+		if ([95, 96, 99].includes(code)) return { text: "雷雨", icon: "⛈️" };
+		return { text: "天气变化中", icon: "🌤️" };
+	}
+
+	function setLoading(widget: HTMLElement, text: string) {
+		const status = widget.querySelector<HTMLElement>("[data-weather-status]");
+		if (status) status.textContent = text;
+		widget.classList.add("is-loading");
+	}
+
+	function renderWeather(widget: HTMLElement, city: string, response: ForecastResponse) {
+		const current = response.current;
+		if (!current) throw new Error("没有取得当前天气数据");
+
+		const info = weatherDescription(Number(current.weather_code ?? -1), current.is_day !== 0);
+		const units = response.current_units ?? {};
+		const temperatureUnit = units.temperature_2m || "°C";
+		const windUnit = units.wind_speed_10m || "km/h";
+
+		const setText = (selector: string, value: string) => {
+			const element = widget.querySelector<HTMLElement>(selector);
+			if (element) element.textContent = value;
+		};
+
+		setText("[data-weather-city]", city);
+		setText("[data-weather-temperature]", `${Math.round(Number(current.temperature_2m))}${temperatureUnit}`);
+		setText("[data-weather-status]", info.text);
+		setText("[data-weather-icon]", info.icon);
+		setText("[data-weather-apparent]", `${Math.round(Number(current.apparent_temperature))}${temperatureUnit}`);
+		setText("[data-weather-humidity]", `${Math.round(Number(current.relative_humidity_2m))}%`);
+		setText("[data-weather-wind]", `${Math.round(Number(current.wind_speed_10m))} ${windUnit}`);
+		widget.classList.remove("is-loading", "has-error");
+	}
+
+	function readCache(key: string): CachedWeather | null {
+		try {
+			const raw = localStorage.getItem(key);
+			if (!raw) return null;
+			const cached = JSON.parse(raw) as CachedWeather;
+			if (Date.now() - cached.time > CACHE_TIME) return null;
+			return cached;
+		} catch {
+			return null;
+		}
+	}
+
+	function writeCache(key: string, city: string, data: ForecastResponse) {
+		try {
+			localStorage.setItem(key, JSON.stringify({ time: Date.now(), city, data } satisfies CachedWeather));
+		} catch {
+			// 浏览器禁用本地存储时，天气功能仍然可以正常使用。
+		}
+	}
+
+	async function fetchWeather(latitude: number, longitude: number) {
+		const url = new URL("https://api.open-meteo.com/v1/forecast");
+		url.searchParams.set("latitude", String(latitude));
+		url.searchParams.set("longitude", String(longitude));
+		url.searchParams.set(
+			"current",
+			"temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day",
+		);
+		url.searchParams.set("timezone", "auto");
+
+		const response = await fetch(url);
+		if (!response.ok) throw new Error("天气服务请求失败");
+		return (await response.json()) as ForecastResponse;
+	}
+
+	async function resolveCity(city: string) {
+		const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+		url.searchParams.set("name", city);
+		url.searchParams.set("count", "1");
+		url.searchParams.set("language", "zh");
+		url.searchParams.set("format", "json");
+
+		const response = await fetch(url);
+		if (!response.ok) throw new Error("城市查询失败");
+		const result = (await response.json()) as { results?: GeoResult[] };
+		const location = result.results?.[0];
+		if (!location) throw new Error(`没有找到城市：${city}`);
+		return location;
+	}
+
+	async function loadByCoordinates(widget: HTMLElement, latitude: number, longitude: number, city: string) {
+		const cacheKey = `airlove-weather:${latitude.toFixed(2)},${longitude.toFixed(2)}`;
+		const cached = readCache(cacheKey);
+		if (cached) {
+			renderWeather(widget, cached.city, cached.data);
+			return;
+		}
+
+		setLoading(widget, "正在更新天气...");
+		const data = await fetchWeather(latitude, longitude);
+		renderWeather(widget, city, data);
+		writeCache(cacheKey, city, data);
+	}
+
+	async function loadByCity(widget: HTMLElement, city: string) {
+		setLoading(widget, `正在获取${city}天气...`);
+		const location = await resolveCity(city);
+		const displayCity = location.admin1 && location.admin1 !== location.name
+			? `${location.name}`
+			: location.name;
+		await loadByCoordinates(widget, location.latitude, location.longitude, displayCity);
+	}
+
+	function showError(widget: HTMLElement, message: string) {
+		const status = widget.querySelector<HTMLElement>("[data-weather-status]");
+		if (status) status.textContent = message;
+		widget.classList.remove("is-loading");
+		widget.classList.add("has-error");
+	}
+
+	function initWeatherWidgets() {
+		document.querySelectorAll<HTMLElement>("[data-weather-widget]").forEach((widget) => {
+			if (widget.dataset.weatherReady === "true") return;
+			widget.dataset.weatherReady = "true";
+
+			const defaultCity = widget.dataset.defaultCity || "石家庄";
+			const refreshButton = widget.querySelector<HTMLButtonElement>("[data-weather-refresh]");
+			const locationButton = widget.querySelector<HTMLButtonElement>("[data-weather-location]");
+
+			const loadDefault = () => {
+				loadByCity(widget, defaultCity).catch((error: unknown) => {
+					console.error("天气加载失败：", error);
+					showError(widget, "天气加载失败，点击刷新重试");
+				});
+			};
+
+			refreshButton?.addEventListener("click", loadDefault);
+			locationButton?.addEventListener("click", () => {
+				if (!("geolocation" in navigator)) {
+					showError(widget, "当前浏览器不支持定位");
+					return;
+				}
+
+				setLoading(widget, "正在获取你的位置...");
+				navigator.geolocation.getCurrentPosition(
+					(position) => {
+						loadByCoordinates(
+							widget,
+							position.coords.latitude,
+							position.coords.longitude,
+							"当前位置",
+						).catch((error: unknown) => {
+							console.error("当前位置天气加载失败：", error);
+							showError(widget, "当前位置天气加载失败");
+						});
+					},
+					() => showError(widget, "没有获得定位权限"),
+					{ enableHighAccuracy: false, timeout: 8000, maximumAge: 10 * 60 * 1000 },
+				);
+			});
+
+			loadDefault();
+		});
+	}
+
+	const weatherWindow = window as Window & { __airloveWeatherEventsBound?: boolean };
+	if (!weatherWindow.__airloveWeatherEventsBound) {
+		weatherWindow.__airloveWeatherEventsBound = true;
+		document.addEventListener("DOMContentLoaded", initWeatherWidgets);
+		document.addEventListener("astro:page-load", initWeatherWidgets);
+		document.addEventListener("swup:contentReplaced", initWeatherWidgets);
+	}
+
+	initWeatherWidgets();
+</script>

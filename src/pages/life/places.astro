@@ -1,0 +1,283 @@
+---
+import { getCollection } from "astro:content";
+import { Icon } from "astro-icon/components";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+
+const lifeEntries = await getCollection("life");
+
+const isIn = (entryId: string, folder: string) =>
+	entryId.replace(/\\/g, "/").startsWith(`${folder}/`);
+
+const now = new Date();
+const currentYear = now.getFullYear();
+
+const isSameYear = (date?: Date | string) => {
+	if (!date) return false;
+	const d = date instanceof Date ? date : new Date(String(date));
+	if (Number.isNaN(d.getTime())) return false;
+	return d.getFullYear() === currentYear;
+};
+
+const sum = (arr: number[]) => arr.reduce((acc, num) => acc + num, 0);
+
+const visitedPlaces = lifeEntries
+	.filter((entry) => isIn(entry.id, "places"))
+	.filter((entry) => !entry.id.toLowerCase().includes("readme"))
+	.map((entry) => entry.data);
+
+const sortedPlaces = [...visitedPlaces].sort((a, b) => {
+	const aTime = a.date instanceof Date ? a.date.getTime() : 0;
+	const bTime = b.date instanceof Date ? b.date.getTime() : 0;
+	return bTime - aTime;
+});
+
+const totalVisitCount = sum(sortedPlaces.map((p) => p.visitCount || 1));
+const thisYearVisitCount = sortedPlaces.filter((p) =>
+	isSameYear(p.date),
+).length;
+
+// 预设标记颜色循环
+const MARKER_PRESETS = ['ocean', 'sunset', 'violet', 'forest', 'amber', 'citrus'];
+
+// 将 MD 数据转换为 FootprintMap 所需的 JSON 格式
+const footprintLocations = sortedPlaces
+	.filter((p) => p.lat && p.lng) // 只有没有经纬度的地点才会显示在地图上
+	.map((p, i) => ({
+		name: [p.province, p.city].filter(Boolean).join(' · ') || '未命名地点',
+		coordinates: `${p.lng},${p.lat}`,
+		date: p.date instanceof Date ? p.date.toISOString().split('T')[0] : (typeof p.date === 'string' ? p.date : ''),
+		description: p.experience || '',
+		url: p.url || '',
+		urlLabel: p.urlLabel || '查看相关内容',
+		photos: (p.photos && p.photos.length > 0) ? p.photos : [],
+		categories: (p.tags && p.tags.length > 0) ? p.tags : ['去过'],
+		markerColor: MARKER_PRESETS[i % MARKER_PRESETS.length],
+		visitCount: p.visitCount || 1,
+	}));
+
+const footprintData = JSON.stringify({ locations: footprintLocations });
+---
+
+<MainGridLayout title='去过的地方' description='足迹地图与旅行记录'>
+  <link slot="head" rel="stylesheet" href="/footprint/static/css/footprintmap.css">
+  <script is:inline slot="head" define:vars={{ footprintData }}>
+// 足迹地图初始化脚本
+// 放在 head 中，Swup 导航时 @swup/head-plugin 会重新执行此脚本
+var _footprintInit = false;
+
+function _fpLoadScript(src, globalCheck) {
+  return new Promise(function(resolve, reject) {
+    if (globalCheck && window[globalCheck]) { resolve(); return; }
+    var existing = document.querySelector('script[data-fp-src="' + src + '"]');
+    if (existing) { resolve(); return; }
+    var s = document.createElement('script');
+    s.src = src;
+    s.setAttribute('data-fp-src', src);
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+function _fpInit() {
+  var mapEl = document.getElementById('footprintMap');
+  if (!mapEl || _footprintInit) return;
+  _footprintInit = true;
+
+  var blob;
+  try {
+    blob = new Blob([footprintData], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    mapEl.setAttribute('data-json', url);
+  } catch(e) {
+    console.error('足迹数据初始化失败:', e);
+    return;
+  }
+
+  if (window.FootprintMap && window.FootprintMap.CONFIG) {
+    window.FootprintMap.CONFIG.HIGHLIGHT.mode = 'visited';
+  }
+
+  mapEl.classList.add('footprint-map--loading');
+
+  Promise.all([
+    _fpLoadScript('/footprint/static/js/utils.js', 'FootprintMap'),
+    _fpLoadScript('/footprint/static/js/theme.js'),
+    _fpLoadScript('/footprint/static/js/footprintmap.js', 'FootprintMap'),
+    _fpLoadScript('/footprint/static/js/plugin-visited.js'),
+    _fpLoadScript('/footprint/static/js/plugin-hover.js')
+  ]).then(function() {
+    if (window.FootprintMap && window.FootprintMap.bootstrapMap) {
+      window.FootprintMap.bootstrapMap(mapEl);
+    }
+  }).catch(function(err) {
+    console.error('足迹地图脚本加载失败:', err);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _fpInit);
+} else {
+  _fpInit();
+}
+  </script>
+  <div class="flex w-full rounded-(--radius-large) overflow-hidden relative min-h-32">
+    <div class="card-base z-10 px-4 py-6 md:px-9 relative w-full">
+
+      <!-- 头部 -->
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-12 h-12 rounded-2xl bg-black dark:bg-white flex items-center justify-center">
+          <Icon name="material-symbols:explore" class="text-[1.4rem] text-white dark:text-black" />
+        </div>
+        <div>
+          <h1 data-pagefind-meta="title" data-pagefind-weight="10" class="text-3xl font-bold text-neutral-900 dark:text-neutral-100">去过的地方</h1>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">足迹地图与旅行记录</p>
+        </div>
+      </div>
+
+      <!-- 统计 -->
+      <div class="flex flex-wrap gap-3 mb-6">
+        <div class="stat-pill">
+          <Icon name="material-symbols:location-city" class="text-sm" />
+          <span class="font-semibold">{sortedPlaces.length}</span>
+          <span class="text-neutral-500 dark:text-neutral-400">地点</span>
+        </div>
+        <div class="stat-pill">
+          <Icon name="material-symbols:pin-drop" class="text-sm" />
+          <span class="font-semibold">{totalVisitCount}</span>
+          <span class="text-neutral-500 dark:text-neutral-400">到访次数</span>
+        </div>
+        <div class="stat-pill">
+          <Icon name="material-symbols:calendar-today" class="text-sm" />
+          <span class="font-semibold">{thisYearVisitCount}</span>
+          <span class="text-neutral-500 dark:text-neutral-400">今年出行</span>
+        </div>
+      </div>
+
+      <!-- 地图 -->
+      <div class="mb-6">
+        <h2 class="text-lg font-bold text-neutral-900 dark:text-neutral-100 mb-3">足迹地图</h2>
+        {footprintLocations.length > 0 ? (
+          <div id='footprintMap' class='footprint-map' data-amap-key='' style='height: 500px;'></div>
+        ) : (
+          <div class='h-[500px] w-full rounded-xl border-2 border-black dark:border-[#3f3f46] flex flex-col items-center justify-center gap-2'>
+            <Icon name="material-symbols:location-off" class="text-4xl text-neutral-300 dark:text-neutral-600" />
+            <p class='text-neutral-500 dark:text-neutral-400 text-sm'>暂无地图数据</p>
+            <p class='text-xs text-neutral-400 dark:text-neutral-500'>请在地点 MD 文件中添加 lat 和 lng 字段</p>
+          </div>
+        )}
+        <p class='mt-2 text-xs text-neutral-400 dark:text-neutral-500 text-center'>地图由 高德地图 提供</p>
+      </div>
+
+      <!-- 地点列表 -->
+      <div>
+        <h2 class="text-lg font-bold text-neutral-900 dark:text-neutral-100 mb-3">地点列表</h2>
+        {sortedPlaces.length === 0 ? (
+          <div class='w-full p-12 text-center'>
+            <Icon name="material-symbols:explore" class="text-5xl text-neutral-300 dark:text-neutral-600 mb-4" />
+            <p class='text-neutral-500 dark:text-neutral-400'>暂无地点记录</p>
+            <p class='text-sm text-neutral-400 dark:text-neutral-500 mt-2'>在 life/places/ 下新建 md 即可添加</p>
+          </div>
+        ) : (
+          <div class='places-grid'>
+            {sortedPlaces.map((place) => (
+              <article class='place-card'>
+                <div class='flex items-start justify-between gap-4'>
+                  <div class='flex-1 min-w-0'>
+                    <h3 class='place-name'>{place.province || '未知省份'}{place.city ? ` · ${place.city}` : ''}</h3>
+                    {place.experience && (
+                      <p class='place-exp'>{place.experience}</p>
+                    )}
+                    {(!place.lat || !place.lng) && (
+                      <p class='place-warn'>缺少经纬度，未显示在地图上</p>
+                    )}
+                  </div>
+                  <div class='text-right text-xs text-neutral-400 dark:text-neutral-500 shrink-0'>
+                    <div class='font-semibold text-neutral-600 dark:text-neutral-300'>到访 {place.visitCount || 1} 次</div>
+                    <div class='mt-0.5'>{place.date instanceof Date ? place.date.toISOString().split('T')[0] : (typeof place.date === 'string' ? place.date : '')}</div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+
+    </div>
+  </div>
+</MainGridLayout>
+
+<style>
+  .stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 2px solid #000;
+    border-radius: 50px;
+    font-size: 13px;
+    color: var(--deep-text);
+  }
+  :root.dark .stat-pill {
+    border-color: #3f3f46;
+  }
+
+  .stat-pill :global(svg) {
+    color: var(--primary);
+  }
+
+  .places-grid {
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 768px) {
+    .places-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .place-card {
+    padding: 0.875rem 1rem;
+    border: 2px solid #000;
+    border-radius: var(--radius-large);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  :root.dark .place-card {
+    border-color: #3f3f46;
+  }
+  .place-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+  :root.dark .place-card:hover {
+    border-color: #fff;
+    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.06);
+  }
+
+  .place-name {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--deep-text);
+    margin: 0;
+  }
+
+  .place-exp {
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--content-meta);
+    line-height: 1.5;
+  }
+
+  .place-warn {
+    margin: 0.25rem 0 0;
+    font-size: 0.75rem;
+    color: #f59e0b;
+  }
+
+  @media (max-width: 640px) {
+    .place-card {
+      padding: 0.75rem 0.875rem;
+    }
+  }
+</style>

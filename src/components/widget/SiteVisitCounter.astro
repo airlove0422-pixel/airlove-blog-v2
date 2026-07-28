@@ -1,0 +1,12 @@
+---
+import WidgetLayout from "@/components/common/WidgetLayout.astro";
+import I18nKey from "@/i18n/i18nKey";
+import { i18n } from "@/i18n/translation";
+---
+
+<WidgetLayout name={i18n(I18nKey.pageViews) || "访问统计"} id="site-visit-counter">
+  <div class="flex flex-col items-center py-3">
+    <div class="text-lg font-bold">暂未配置</div>
+    <p class="text-xs opacity-60 mt-2">部署统计服务后可在此显示访问量</p>
+  </div>
+</WidgetLayout>

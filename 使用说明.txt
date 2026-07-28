@@ -1,0 +1,26 @@
+Airlove Blog 天气功能补丁
+
+功能：
+1. 首页“站点数据”区域新增天气卡片。
+2. 默认显示石家庄天气。
+3. 支持刷新天气。
+4. 支持点击定位按钮获取访客当前位置天气。
+5. 无需申请天气 API Key。
+
+安装：
+1. 先在运行博客的 PowerShell 中按 Ctrl+C 停止。
+2. 将本压缩包解压到 E:\code\Airlove-Blog-v2，并选择覆盖文件。
+3. 进入项目后执行：
+   cd E:\code\Airlove-Blog-v2
+   Remove-Item -Recurse -Force .astro -ErrorAction SilentlyContinue
+   pnpm dev
+4. 浏览器打开 http://localhost:4321
+
+修改默认城市：
+打开 src\components\layout\HomeDataLayer.astro
+将：
+<WeatherWidget defaultCity="石家庄" />
+改为：
+<WeatherWidget defaultCity="你的城市" />
+例如：
+<WeatherWidget defaultCity="北京" />

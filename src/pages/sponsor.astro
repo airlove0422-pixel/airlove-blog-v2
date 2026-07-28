@@ -1,0 +1,279 @@
+---
+import { Icon } from "astro-icon/components";
+import { siteConfig, sponsorConfig } from "@/config";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+import { url } from "@/utils/url-utils";
+
+if (!siteConfig.pages.sponsor) {
+	return Astro.redirect("/404/");
+}
+
+const title = sponsorConfig.title || "支持本站";
+const description = sponsorConfig.description || "感谢你对本站的关注与支持。";
+const enabledMethods = sponsorConfig.methods.filter((method) => method.enabled);
+const sponsors = sponsorConfig.sponsors || [];
+const showSponsorsList = sponsorConfig.showSponsorsList !== false;
+const suggestedAmounts = ["¥1", "¥5", "¥10", "¥20", "随缘"];
+const usageItems = [
+	{ emoji: "🌐", title: "域名与服务器", text: "维持网站访问、部署和必要的网络服务。" },
+	{ emoji: "🛠️", title: "博客维护", text: "完善页面、修复问题并持续优化使用体验。" },
+	{ emoji: "💡", title: "项目与内容", text: "支持学习项目、文章整理和长期更新。" },
+];
+---
+
+<MainGridLayout title={title} description={description}>
+  <main class="sponsor-page">
+    <section class="hero card-base">
+      <div class="hero-icon">
+        <Icon name="material-symbols:favorite" class="text-3xl" />
+      </div>
+      <div>
+        <p class="eyebrow">SUPPORT</p>
+        <h1>{title}</h1>
+        <p class="hero-description">{description}</p>
+      </div>
+    </section>
+
+    {sponsorConfig.usage && (
+      <section class="notice card-base">
+        <Icon name="material-symbols:info-outline" class="text-xl shrink-0" />
+        <div>
+          <strong>赞助说明</strong>
+          <p>{sponsorConfig.usage}</p>
+        </div>
+      </section>
+    )}
+
+    <section class="section-block">
+      <div class="section-title">
+        <div>
+          <p class="eyebrow">PAYMENT</p>
+          <h2>选择赞助方式</h2>
+        </div>
+        <span>{enabledMethods.length} 种方式</span>
+      </div>
+
+      {enabledMethods.length > 0 ? (
+        <div class="method-grid">
+          {enabledMethods.map((method) => (
+            <article class="method-card card-base">
+              <div class="method-heading">
+                <div class="method-icon">
+                  {method.icon && <Icon name={method.icon} class="text-3xl" />}
+                </div>
+                <div>
+                  <h3>{method.name}</h3>
+                  {method.description && <p>{method.description}</p>}
+                </div>
+              </div>
+
+              {method.qrCode && (
+                <button
+                  class="qr-wrapper"
+                  type="button"
+                  data-qr-src={url(method.qrCode)}
+                  data-qr-name={method.name}
+                  aria-label={`放大查看${method.name}收款码`}
+                >
+                  <img
+                    src={url(method.qrCode)}
+                    alt={`${method.name}收款码`}
+                    loading="lazy"
+                  />
+                  <span>点击放大查看</span>
+                </button>
+              )}
+
+              <div class="amount-row" aria-label="建议金额">
+                {suggestedAmounts.map((amount) => <span>{amount}</span>)}
+              </div>
+
+              {method.link && (
+                <a
+                  href={method.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="method-link"
+                >
+                  前往赞助
+                  <Icon name="fa7-solid:arrow-up-right-from-square" class="text-sm" />
+                </a>
+              )}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div class="empty card-base">
+          <p>赞助方式暂未开放。</p>
+        </div>
+      )}
+    </section>
+
+    <section class="section-block">
+      <div class="section-title">
+        <div>
+          <p class="eyebrow">USAGE</p>
+          <h2>赞助会用在哪里</h2>
+        </div>
+      </div>
+      <div class="usage-grid">
+        {usageItems.map((item) => (
+          <article class="usage-card card-base">
+            <span class="usage-emoji">{item.emoji}</span>
+            <h3>{item.title}</h3>
+            <p>{item.text}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    {showSponsorsList && (
+      <section class="section-block">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">THANKS</p>
+            <h2>感谢名单</h2>
+          </div>
+          <span>{sponsors.length} 位朋友</span>
+        </div>
+
+        {sponsors.length > 0 ? (
+          <div class="sponsor-list">
+            {sponsors.map((sponsor) => (
+              <article class="sponsor-item card-base">
+                <div class="sponsor-topline">
+                  <strong>{sponsor.name}</strong>
+                  {sponsor.amount && <span>{sponsor.amount}</span>}
+                </div>
+                {sponsor.message && <p>{sponsor.message}</p>}
+                {sponsor.date && (
+                  <time datetime={sponsor.date}>
+                    {new Date(sponsor.date).toLocaleDateString("zh-CN")}
+                  </time>
+                )}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div class="empty card-base">
+            <span>✨</span>
+            <p>感谢每一位来访者。这里暂时还没有公开的赞助记录。</p>
+          </div>
+        )}
+      </section>
+    )}
+
+    <section class="privacy card-base">
+      <strong>隐私与说明</strong>
+      <p>赞助完全自愿，不提供付费内容或特殊权限。感谢名单默认只展示昵称；不建议在付款备注中填写手机号、住址等敏感信息。</p>
+    </section>
+  </main>
+
+  <div id="qr-modal" class="qr-modal" aria-hidden="true">
+    <button id="qr-modal-close" class="qr-close" type="button" aria-label="关闭">×</button>
+    <div class="qr-modal-panel">
+      <h3 id="qr-modal-title">收款码</h3>
+      <img id="qr-modal-image" src="" alt="放大的收款码" />
+      <p>使用对应应用扫一扫</p>
+    </div>
+  </div>
+</MainGridLayout>
+
+<script>
+  function initSponsorQrModal() {
+    const modal = document.getElementById("qr-modal");
+    const image = document.getElementById("qr-modal-image") as HTMLImageElement | null;
+    const title = document.getElementById("qr-modal-title");
+    const close = document.getElementById("qr-modal-close");
+    if (!modal || !image || !title || !close) return;
+
+    const hide = () => {
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = "";
+    };
+
+    document.querySelectorAll<HTMLButtonElement>("[data-qr-src]").forEach((button) => {
+      if (button.dataset.bound === "true") return;
+      button.dataset.bound = "true";
+      button.addEventListener("click", () => {
+        image.src = button.dataset.qrSrc || "";
+        title.textContent = `${button.dataset.qrName || ""}收款码`;
+        modal.classList.add("is-open");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+      });
+    });
+
+    close.addEventListener("click", hide);
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) hide();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") hide();
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", initSponsorQrModal);
+  document.addEventListener("astro:page-load", initSponsorQrModal);
+  document.addEventListener("swup:contentReplaced", initSponsorQrModal);
+</script>
+
+<style>
+  .sponsor-page { display: flex; flex-direction: column; gap: 28px; width: 100%; }
+  .card-base { border: 1px solid color-mix(in srgb, var(--line-divider) 75%, transparent); }
+  .hero { display: flex; gap: 20px; align-items: flex-start; padding: 30px; }
+  .hero-icon { width: 58px; height: 58px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 18px; background: var(--primary); color: white; }
+  .eyebrow { margin: 0 0 4px; font-size: 12px; font-weight: 800; letter-spacing: .18em; color: var(--primary); }
+  h1 { margin: 0; font-size: clamp(30px, 5vw, 44px); line-height: 1.15; color: var(--deep-text); }
+  .hero-description { max-width: 760px; margin: 12px 0 0; color: var(--content-meta); line-height: 1.8; }
+  .notice { display: flex; gap: 12px; padding: 18px 20px; color: var(--deep-text); background: color-mix(in srgb, var(--primary) 9%, var(--card-bg)); }
+  .notice strong { display: block; margin-bottom: 4px; }
+  .notice p { margin: 0; color: var(--content-meta); line-height: 1.7; }
+  .section-block { display: flex; flex-direction: column; gap: 16px; }
+  .section-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+  .section-title h2 { margin: 0; color: var(--deep-text); font-size: 25px; }
+  .section-title > span { color: var(--content-meta); font-size: 13px; }
+  .method-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .method-card { display: flex; flex-direction: column; align-items: center; padding: 24px; }
+  .method-heading { width: 100%; display: flex; gap: 14px; align-items: center; }
+  .method-icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 15px; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+  .method-heading h3 { margin: 0; color: var(--deep-text); font-size: 21px; }
+  .method-heading p { margin: 5px 0 0; color: var(--content-meta); font-size: 13px; line-height: 1.5; }
+  .qr-wrapper { width: min(250px, 85%); margin: 22px auto 16px; padding: 14px; border: 1px solid var(--line-divider); border-radius: 20px; background: #fff; cursor: zoom-in; transition: transform .25s ease, box-shadow .25s ease; }
+  .qr-wrapper:hover { transform: translateY(-4px); box-shadow: 0 15px 35px rgba(0, 0, 0, .1); }
+  .qr-wrapper img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; }
+  .qr-wrapper span { display: block; margin-top: 9px; color: #666; font-size: 12px; text-align: center; }
+  .amount-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .amount-row span { padding: 6px 10px; border-radius: 999px; background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--deep-text); font-size: 12px; font-weight: 700; }
+  .method-link { display: inline-flex; align-items: center; gap: 7px; margin-top: 16px; padding: 10px 16px; border-radius: 12px; background: var(--primary); color: white; font-weight: 700; }
+  .usage-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .usage-card { padding: 22px; }
+  .usage-emoji { display: block; font-size: 30px; margin-bottom: 13px; }
+  .usage-card h3 { margin: 0 0 8px; color: var(--deep-text); font-size: 17px; }
+  .usage-card p { margin: 0; color: var(--content-meta); font-size: 13px; line-height: 1.7; }
+  .sponsor-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .sponsor-item { padding: 20px; }
+  .sponsor-topline { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+  .sponsor-topline strong { color: var(--deep-text); }
+  .sponsor-topline span { padding: 5px 10px; border-radius: 999px; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); font-weight: 800; }
+  .sponsor-item p { margin: 12px 0; color: var(--content-meta); line-height: 1.7; }
+  .sponsor-item time { color: var(--content-meta); font-size: 12px; }
+  .empty { padding: 34px; text-align: center; color: var(--content-meta); }
+  .empty span { display: block; margin-bottom: 10px; font-size: 28px; }
+  .privacy { padding: 20px 22px; }
+  .privacy strong { color: var(--deep-text); }
+  .privacy p { margin: 7px 0 0; color: var(--content-meta); font-size: 13px; line-height: 1.7; }
+  .qr-modal { position: fixed; inset: 0; z-index: 10000; display: none; place-items: center; padding: 20px; background: rgba(0, 0, 0, .72); backdrop-filter: blur(10px); }
+  .qr-modal.is-open { display: grid; }
+  .qr-modal-panel { width: min(390px, 92vw); padding: 24px; border-radius: 24px; background: var(--card-bg); text-align: center; box-shadow: 0 25px 80px rgba(0, 0, 0, .35); }
+  .qr-modal-panel h3 { margin: 0 0 15px; color: var(--deep-text); }
+  .qr-modal-panel img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 16px; background: white; }
+  .qr-modal-panel p { margin: 14px 0 0; color: var(--content-meta); }
+  .qr-close { position: fixed; top: 20px; right: 24px; width: 44px; height: 44px; border-radius: 50%; background: white; color: #111; font-size: 30px; line-height: 1; }
+  @media (max-width: 780px) {
+    .hero { padding: 22px; }
+    .method-grid, .usage-grid, .sponsor-list { grid-template-columns: 1fr; }
+    .section-title { align-items: flex-start; }
+  }
+</style>
